@@ -7,10 +7,57 @@
 //
 
 #include <iostream>
-#include <array>
+#include <vector>
 #include <string.h>
 #include <stdlib.h>
 #include "shapefil.h"
+
+using namespace std;
+
+void Extract(SHPHandle hSHP, int nShapeType)
+{
+    if (nShapeType == SHPT_NULL || nShapeType == SHPT_POINT ||
+        nShapeType == SHPT_POINTM || nShapeType == SHPT_POINTZ ) {
+        return;
+    }
+    int index = -1;
+    vector<int> lines;
+    vector<int> rings;
+    vector<int> coordinates;
+    
+
+    for (int i=0; i < hSHP->nRecords; i++) {
+        SHPObject *psShape;
+        psShape = SHPReadObject(hSHP, i);
+        
+        if (nShapeType == SHPT_ARC || nShapeType == SHPT_ARCM ||
+            nShapeType == SHPT_ARCZ) {
+            //extract line
+            for(int j = 0, iPart = 1; j < psShape->nVertices; j++ ) {
+                
+            }
+        }
+    }
+    
+}
+void Join(SHPHandle hSHP)
+{
+    int n = hSHP->nRecords;
+   
+    int* visitedByIndex = new int[n];
+    int* leftByIndex    = new int[n];
+    int* rightByIndex   = new int[n];
+
+    for (int i=0; i < n; ++i) {
+        visitedByIndex[i] = leftByIndex[i] = rightByIndex[i] = -1;
+    }
+    
+    for (int i=0; i < n; ++i) {
+        
+    }
+}
+
+
 
 
 int main(int argc, const char * argv[])
