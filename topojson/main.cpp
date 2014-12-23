@@ -69,8 +69,8 @@ int main(int argc, const char * argv[])
     int		nShapeType, nEntities, i, nInvalidCount=0;
     double 	adfMinBound[4], adfMaxBound[4];
     
-    hSHP = SHPOpen( argv[1], "rb" );
-
+    hSHP = SHPOpen( "", "rb" );
+	
     if( hSHP == NULL )
     {
         printf( "Unable to open:%s\n", argv[1] );
