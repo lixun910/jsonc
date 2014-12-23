@@ -9,19 +9,23 @@
 #ifndef __topojson__hashtable__
 #define __topojson__hashtable__
 
-#include <iostream>
+#include <vector>
 
-class Hashtable {
-    int size;
-    int mask;
-    
-private:
-    int retFunc(float x, float y);
-    
-    bool equal(int* keyA, int* keyB);
+using namespace std;
+
+class Hashmap {
+	vector<int> keystore;
+	vector<int> valstore;
+	int mask;
+	int size;
+	int free;
     
 public:
-    Hashtable(int size);
+    int set(int key, int value);
+    
+    int maybeSet(int key, int value);
+    
+    Hashmap(int size);
     
     void* peak(int key);
     

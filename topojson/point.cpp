@@ -7,3 +7,8 @@
 //
 
 #include "point.h"
+
+point::point(double _x, double _y) {
+	this->x = _x;
+	this->y = _y;
+}

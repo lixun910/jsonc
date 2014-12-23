@@ -63,6 +63,7 @@
     <ClInclude Include="..\..\..\topojson\hashtable.h" />
     <ClInclude Include="..\..\..\topojson\point.h" />
     <ClInclude Include="..\..\..\topojson\shapefil.h" />
+    <ClInclude Include="..\..\..\topojson\topojson.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\topojson\dbfopen.c" />
@@ -72,6 +73,7 @@
     <ClCompile Include="..\..\..\topojson\safileio.c" />
     <ClCompile Include="..\..\..\topojson\shpopen.c" />
     <ClCompile Include="..\..\..\topojson\shptree.c" />
+    <ClCompile Include="..\..\..\topojson\topojson.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

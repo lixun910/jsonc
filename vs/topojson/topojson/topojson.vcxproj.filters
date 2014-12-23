@@ -24,6 +24,9 @@
     <ClInclude Include="..\..\..\topojson\shapefil.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\topojson\topojson.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\topojson\dbfopen.c">
@@ -45,6 +48,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\topojson\shptree.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\topojson\topojson.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

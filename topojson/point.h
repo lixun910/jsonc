@@ -12,7 +12,10 @@
 #include <iostream>
 
 class point {
-    int x;
-    int y;
+    double x;
+    double y;
+
+public:
+	point(double _x, double _y);
 };
 #endif /* defined(__topojson__point__) */
