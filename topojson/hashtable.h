@@ -16,6 +16,19 @@
 
 using namespace std;
 
+class Arc {
+public:
+    Arc* next;
+    int first;
+    int second;
+public:
+    Arc();
+    Arc(int _first, int _second);
+    ~Arc();
+    
+    Arc & operator=(const Arc& arc);
+};
+
 class FullHashmapException: public exception
 {
     virtual const char* what() const throw()
@@ -25,25 +38,25 @@ class FullHashmapException: public exception
 };
 
 class Hashmap {
-	vector<int> keystore;
-	vector<int> valstore;
+	vector<point*> keystore;
+	vector<vector<Arc*>> valstore;
 	int size;
 	int hm_mask;
 	int hm_free;
-    int keyEmpty;
-    int valEmpty;
+    point* keyEmpty;
+    Arc* valEmpty;
 
     
 public:
     Hashmap(int _size);
     
-    int set(int key, int value, vector<point>& coords);
+    void set(point* key, vector<Arc*>& value);
     
-    int maybeSet(int key, int value, vector<point>& coords);
+    vector<Arc*> maybeSet(point* key, vector<Arc*>& value);
    
-    int get(int key, int missingValue, vector<point>& coords);
+    vector<Arc*> get(point* key);
     
-    vector<int> keys();
+    vector<point*> keys();
 };
 
 class FullHashsetException: public exception
@@ -55,19 +68,19 @@ class FullHashsetException: public exception
 };
 
 class Hashset {
-    vector<int> store;
+    vector<point*> store;
     int size;
 	int hs_mask;
 	int hs_free;
-    int empty;
+    point* empty;
     
 public:
     Hashset(int _size);
    
-    bool add(int value, vector<point>& coords);
+    bool add(point* value);
     
-    bool has(int value, vector<point>& coords);
+    bool has(point* value);
     
-    vector<int> values();
+    vector<point*> values();
 };
 #endif /* defined(__topojson__hashtable__) */

@@ -17,19 +17,6 @@
 
 using namespace std;
 
-class Arc {
-public:
-    Arc* next;
-    int first;
-    int second;
-public:
-    Arc();
-    Arc(int _first, int _second);
-    ~Arc();
-    
-    Arc & operator=(const Arc& arc);
-};
-
 class Topojson {
     int index;
     vector<Arc> lines;
@@ -49,6 +36,8 @@ class Topojson {
 	vector<int> junctionByIndex;
 	int junctionCount; // upper bound on number of junctions
     
+	Hashmap* arcsByEnd;
+
 public:
 	Topojson(const char* shp_path);
 	~Topojson();
@@ -64,6 +53,16 @@ private:
     void rotateArray(vector<point>& array, int start, int end, int offset);
     
     void reverse(vector<point>& array, int start, int end);
+
+	void dedupLine(Arc* line);
+
+	void dedupRing(Arc* ring);
+
+	bool equalLine(Arc* arcA, Arc* arcB);
+	bool reverseEqualLine(Arc* arcA, Arc* arcB);
+	bool equalRing(Arc* arcA, Arc* arcB);
+
+	int findMinimumOffset(Arc* arc);
 };
 
 #endif /* defined(__topojson__) */

@@ -5,16 +5,47 @@
 //  Created by Xun Li on 12/19/14.
 //  Copyright (c) 2014 Xun Li. All rights reserved.
 //
-#include <math.h>
+#include <algorithm>
 
 #include "hashtable.h"
 #include "point.h"
 
+using namespace std;
+
+Arc::Arc()
+{
+    next = NULL;
+}
+
+Arc::Arc(int _first, int _second)
+{
+    first = _first;
+    second = _second;
+    next = NULL;
+}
+
+Arc::~Arc()
+{
+    if (next) {
+        delete next;
+        next = NULL;
+    }
+}
+
+Arc& Arc::operator=(const Arc &arc)
+{
+    first = arc.first;
+    second = arc.second;
+    next = arc.next;
+    
+    return *this;
+}
+
 Hashmap::Hashmap(int _size)
 {
     size = _size;
-    keyEmpty = -1;
-    valEmpty = -1;
+    keyEmpty = NULL;
+    valEmpty = NULL;
     
     size = 1 << max(4, int(ceil(log(size)/log(2.0))));
     hm_mask= size -1;
@@ -26,41 +57,42 @@ Hashmap::Hashmap(int _size)
     }
 }
 
-int Hashmap::set(int key, int value, vector<point>& coords)
+void Hashmap::set(point* key, vector<Arc*>& value)
 {
-    int index = coords[key].hash() & hm_mask;
-    int matchKey = keystore[index];
+    int index = key->hash() & hm_mask;
+    point* matchKey = keystore[index];
     int collisions = 0;
     
     while (matchKey != keyEmpty) {
-        if ( coords[matchKey] == coords[key] ) {
-            return valstore[index] = value;
+        if ( *matchKey == *key ) {
+            valstore[index] = value;
         }
         if ( ++collisions >= size) {
             throw new FullHashmapException();
         }
-        matchKey = keystore[index = (index+1) & hm_mask];
+		index = (index+1) & hm_mask;
+        matchKey = keystore[index];
     }
     keystore[index] = key;
     valstore[index] = value;
     --hm_free;
-    return value;
 }
 
-int Hashmap::maybeSet(int key, int value, vector<point>& coords)
+vector<Arc*> Hashmap::maybeSet(point* key, vector<Arc*>& value)
 {
-    int index = coords[key].hash() & hm_mask;
-    int matchKey = keystore[index];
+    int index = key->hash() & hm_mask;
+    point* matchKey = keystore[index];
     int collisions = 0;
     
     while (matchKey != keyEmpty) {
-        if (coords[matchKey] == coords[key]) {
+        if (*matchKey == *key) {
             return valstore[index];
         }
         if (++collisions >= size) {
             throw new FullHashmapException();
         }
-        matchKey = keystore[index = (index+1) & hm_mask];
+		index = (index+1) & hm_mask;
+        matchKey = keystore[index];
     }
     keystore[index] = key;
     valstore[index] = value;
@@ -68,29 +100,30 @@ int Hashmap::maybeSet(int key, int value, vector<point>& coords)
     return value;
 }
 
-int Hashmap::get(int key, int missingValue, vector<point> &coords)
+vector<Arc*> Hashmap::get(point* key)
 {
-    int index = coords[key].hash() & hm_mask;
-    int matchKey = keystore[index];
+    int index = key->hash() & hm_mask;
+    point* matchKey = keystore[index];
     int collisions = 0;
     
     while (matchKey != keyEmpty) {
-        if (coords[matchKey] == coords[key]) {
+        if (*matchKey == *key) {
             return valstore[index];
         }
         if (++collisions >= size) {
             break;
         }
-        matchKey = keystore[index = (index + 1) & hm_mask];
+		index = (index + 1) & hm_mask;
+        matchKey = keystore[index];
     }
-    return missingValue;
+    return vector<Arc*>();
 }
 
-vector<int> Hashmap::keys()
+vector<point*> Hashmap::keys()
 {
-    vector<int> keys;
+    vector<point*> keys;
     for (int i=0; i < keystore.size(); i++) {
-        int matchKey = keystore[i];
+        point* matchKey = keystore[i];
         if (matchKey != keyEmpty) {
             keys.push_back(matchKey);
         }
@@ -102,7 +135,7 @@ vector<int> Hashmap::keys()
 Hashset::Hashset(int _size)
 {
     size = _size;
-    empty = -1;
+    empty = NULL;
     
     size = 1 << max(4, int(ceil(log(size)/log(2.0))));
     hs_mask= size -1;
@@ -113,49 +146,51 @@ Hashset::Hashset(int _size)
     }
 }
 
-bool Hashset::add(int value, vector<point>& coords)
+bool Hashset::add(point* value)
 {
-    int index = coords[value].hash() & hs_mask;
-    int match = store[index];
+    int index = value->hash() & hs_mask;
+    point* match = store[index];
     int collisions = 0;
    
     while (match != empty) {
-        if (coords[match] == coords[value]) {
+        if (*match == *value) {
             return true;
         }
         if (++collisions >= size) {
             throw new FullHashsetException();
         }
-        match = store[index = (index + 1) & hs_mask];
+		index = (index + 1) & hs_mask;
+        match = store[index];
     }
     store[index] = value;
     --hs_free;
     return true;
 }
 
-bool Hashset::has(int value, vector<point>& coords)
+bool Hashset::has(point* value)
 {
-    int index = coords[value].hash() & hs_mask;
-    int match = store[index];
+    int index = value->hash() & hs_mask;
+    point* match = store[index];
     int collisions = 0;
 
     while (match != empty) {
-        if (coords[match] == coords[value]) {
+        if (*match == *value) {
             return true;
         }
         if (++collisions >= size) {
             break;
         }
-        match = store[index = (index + 1) & hs_mask];
+		index = (index + 1) & hs_mask;
+        match = store[index];
     }
     return false;
 }
 
-vector<int> Hashset::values()
+vector<point*> Hashset::values()
 {
-    vector<int> values;
+    vector<point*> values;
     for (int i=0; i < store.size(); i++) {
-        int match = store[i];
+        point* match = store[i];
         if (match != empty) {
             values.push_back(match);
         }

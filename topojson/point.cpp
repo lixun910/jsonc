@@ -47,6 +47,11 @@ bool point::operator==(const point & pt)
     return x == pt.x && y == pt.y;
 }
 
+bool point::equal(const point & pt)
+{
+    return x == pt.x && y == pt.y;
+}
+
 point& point::operator=(const point & pt)
 {
     if (this == &pt) return *this;

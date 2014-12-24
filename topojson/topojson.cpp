@@ -18,33 +18,6 @@
 
 using namespace std;
 
-Arc::Arc()
-{
-    next = NULL;
-}
-Arc::Arc(int _first, int _second)
-{
-    first = _first;
-    second = _second;
-    next = NULL;
-}
-Arc::~Arc()
-{
-    if (next) {
-        delete next;
-        next = NULL;
-    }
-}
-
-Arc & Arc::operator=(const Arc &arc)
-{
-    first = arc.first;
-    second = arc.second;
-    next = arc.next;
-    
-    return *this;
-}
-
 Topojson::Topojson(const char* shp_path)
 {
 	index = -1;
@@ -109,6 +82,65 @@ void Topojson::reverse(vector<point> &array, int start, int end)
     }
 }
 
+bool Topojson::equalLine(Arc* arcA, Arc* arcB)
+{
+	int ia = arcA->first;
+	int ib = arcB->first;
+	int ja = arcA->second;
+	int jb = arcB->second;
+	if (ia - ja != ib - jb) return false;
+	for (; ia <= ja; ++ia, ++ib) {
+		if (!coordinates[ia].equal(coordinates[ib])) return false;
+	}
+    return true;
+}
+
+bool Topojson::reverseEqualLine(Arc* arcA, Arc* arcB)
+{
+	int ia = arcA->first;
+	int ib = arcB->first;
+	int ja = arcA->second;
+	int jb = arcB->second;
+	if (ia - ja != ib - jb) return false;
+	for (; ia <= ja; ++ia, --jb) {
+		if (!coordinates[ia].equal(coordinates[ib])) return false;
+	}
+    return true;
+}
+
+bool Topojson::equalRing(Arc* arcA, Arc* arcB)
+{
+	int ia = arcA->first;
+	int ib = arcB->first;
+	int ja = arcA->second;
+	int jb = arcB->second;
+	int n = ja - jb;
+	if (n != jb - ib) return false;
+	int ka = findMinimumOffset(arcA);
+	int kb = findMinimumOffset(arcB);
+	for (int i=0; i < n; ++i) {
+		if (!coordinates[ia + (i + ka)%n].equal(coordinates[ib + (i+kb)%n])) return false;
+	}
+    return true;
+}
+
+int Topojson::findMinimumOffset(Arc* arc)
+{
+	int start = arc->first;
+	int end = arc->second;
+	int mid = start;
+	int minimum = mid;
+	point* minimumPoint = &coordinates[mid];
+	while (++mid < end) {
+      point* pt = &coordinates[mid];
+      if (pt->x < minimumPoint->x || pt->x == minimumPoint->x && pt->y < minimumPoint->y) {
+        minimum = mid;
+        minimumPoint = pt;
+      }
+    }
+    return minimum - start;
+}
+
 void Topojson::Extract()
 {
     if (nShapeType == SHPT_NULL || nShapeType == SHPT_POINT ||
@@ -144,7 +176,6 @@ void Topojson::Extract()
 
 Hashset* Topojson::Join()
 {
-
 	for (int i=0; i < coordinates.size(); i++) {
 		visitedByIndex.push_back(-1);
 		leftByIndex.push_back(-1);
@@ -196,7 +227,7 @@ Hashset* Topojson::Join()
     for (int i=0; i < coordinates.size(); i++) {
         int j = indexes[i];
         if (junctionByIndex[j]) {
-            junctionByPoint->add(j, coordinates);
+            junctionByPoint->add(&coordinates[j]);
         }
     }
     
@@ -251,28 +282,26 @@ void Topojson::Dedup()
     
     // Count the number of (non-unique) arcs to initialize the hashmap safely.
     for (int i=0; i < lines.size(); i++) {
-        Arc line = lines[i];
-        Arc* nextline = line.next;
+        Arc* line = &lines[i];
+        Arc* nextline = line->next;
         while (nextline) {
             ++arcCount;
             nextline = nextline->next;
         }
     }
     for (int i=0; i < rings.size(); i++) {
-        Arc ring = rings[i];
-        Arc* nextring = ring.next;
+        Arc* ring = &rings[i];
+        Arc* nextring = ring->next;
         while (nextring) {
             ++arcCount;
             nextring = nextring->next;
         }
     }
     
-    Hashmap arcsByEnd(arcCount * 2 * 1.4);
+   arcsByEnd = new Hashmap(arcCount * 2 * 1.4);
     
     for (int i=0; i < lines.size(); i++) {
-        Arc line = lines[i];
-        Arc* nextline = line.next;
-        
+        Arc* nextline = &lines[i];
         do {
             dedupLine(nextline);
             nextline = nextline->next;
@@ -280,15 +309,46 @@ void Topojson::Dedup()
     }
     
     for (int i=0; i < rings.size(); i++) {
-        Arc ring = rings[i];
-        if (ring.next) {
-            Arc* nextring = &ring;
+        Arc* ring = &rings[i];
+        if (ring->next) {  // arc is no longer closed
+            Arc* nextring = ring;
             do {
                 dedupLine(nextring);
                 nextring = nextring->next;
             } while (nextring);
         } else {
-            dedupRing(&ring);
+            dedupRing(ring);
         }
     }
+}
+
+void Topojson::dedupLine(Arc* arc)
+{
+	// Does this arc match an existing arc in order?
+	point* startPoint = &coordinates[arc->first];
+	vector<Arc*> startArcs = arcsByEnd->get(startPoint);
+	for (int i=0; i < startArcs.size(); i++) {
+		Arc* startArc = startArcs[i];	
+		if (equalLine(startArc, arc)) {
+			arc->first = startArc->first;
+			arc->second = startArc->second;
+			return;
+		}
+	}
+
+	// Does this arc match an existing arc in reverse order?
+	point* endPoint = &coordinates[arc->second];
+	vector<Arc*> endArcs = arcsByEnd->get(endPoint);
+	for (int i=0; i < endArcs.size(); i++) {
+		Arc* endArc = endArcs[i];	
+		if (reverseEqualLine(endArc, arc)) {
+			arc->first = endArc->first;
+			arc->second = endArc->second;
+			return;
+		}
+	}
+
+	if (startArcs.size() > 0) {
+		startArcs.push_back(arc);
+	}
 }
