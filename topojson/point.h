@@ -11,11 +11,21 @@
 
 #include <iostream>
 
+typedef unsigned char byte;
+
 class point {
     double x;
     double y;
-
+    int hashCode;
+    
 public:
 	point(double _x, double _y);
+	point(const point& pt);
+   
+    bool operator==(const point& pt);
+    
+    point & operator=(const point& pt);
+    
+    int hash();
 };
 #endif /* defined(__topojson__point__) */

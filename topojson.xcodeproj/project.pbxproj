@@ -15,6 +15,7 @@
 		A1A00F7E1A4533FA0085238A /* shpopen.c in Sources */ = {isa = PBXBuildFile; fileRef = A1A00F7A1A4533FA0085238A /* shpopen.c */; };
 		A1A00F7F1A4533FA0085238A /* dbfopen.c in Sources */ = {isa = PBXBuildFile; fileRef = A1A00F7C1A4533FA0085238A /* dbfopen.c */; };
 		A1A00F811A4536EE0085238A /* safileio.c in Sources */ = {isa = PBXBuildFile; fileRef = A1A00F801A4536EE0085238A /* safileio.c */; };
+		A1A00F841A49EDF30085238A /* topojson.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A1A00F821A49EDF30085238A /* topojson.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -43,6 +44,8 @@
 		A1A00F7B1A4533FA0085238A /* shapefil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = shapefil.h; sourceTree = "<group>"; };
 		A1A00F7C1A4533FA0085238A /* dbfopen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dbfopen.c; sourceTree = "<group>"; };
 		A1A00F801A4536EE0085238A /* safileio.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = safileio.c; sourceTree = "<group>"; };
+		A1A00F821A49EDF30085238A /* topojson.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = topojson.cpp; sourceTree = "<group>"; };
+		A1A00F831A49EDF30085238A /* topojson.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = topojson.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +78,8 @@
 		A1A00F691A44DB0C0085238A /* topojson */ = {
 			isa = PBXGroup;
 			children = (
+				A1A00F821A49EDF30085238A /* topojson.cpp */,
+				A1A00F831A49EDF30085238A /* topojson.h */,
 				A1A00F801A4536EE0085238A /* safileio.c */,
 				A1A00F791A4533FA0085238A /* shptree.c */,
 				A1A00F7A1A4533FA0085238A /* shpopen.c */,
@@ -142,6 +147,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1A00F7E1A4533FA0085238A /* shpopen.c in Sources */,
+				A1A00F841A49EDF30085238A /* topojson.cpp in Sources */,
 				A1A00F811A4536EE0085238A /* safileio.c in Sources */,
 				A1A00F751A44DC5F0085238A /* hashtable.cpp in Sources */,
 				A1A00F7D1A4533FA0085238A /* shptree.c in Sources */,
@@ -266,6 +272,7 @@
 				A1A00F721A44DB0C0085238A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

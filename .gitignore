@@ -12,3 +12,6 @@
 *.cache
 *.idb
 *.opensdf
+*.xcuserstate
+
+*.xcuserstate
