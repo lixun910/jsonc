@@ -26,7 +26,6 @@ int main(int argc, const char * argv[])
     point pt(12.4, 47.1);
     unsigned int h = pt.hash();
     Topojson topo( "C:\\Users\\Xun\\Documents\\GitHub\\PySAL-Viz\\test_data\\NAT.shp" );
-	topo.Extract();
 
     return 0;
 }

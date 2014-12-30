@@ -5,7 +5,7 @@
 //  Created by Xun Li on 12/19/14.
 //  Copyright (c) 2014 Xun Li. All rights reserved.
 //
-#include <algorithm>
+#include <math.h>
 
 #include "hashtable.h"
 #include "point.h"
@@ -41,16 +41,103 @@ Arc& Arc::operator=(const Arc &arc)
     return *this;
 }
 
-Hashmap::Hashmap(int _size)
+int Arc::hash()
+{
+    int i = first;
+    int j = second;
+    int t = 0;
+    if (j < i) {
+        t = i;
+        i = j;
+        j = t;
+    }
+    return i + 31 * j;
+}
+
+bool Arc::equals(Arc *arcB)
+{
+    int ia = first;
+    int ja = second;
+    int ib = arcB->first;
+    int jb = arcB->second;
+    int t;
+    if (ja < ia) {
+        t = ia;
+        ia = ja;
+        ja = t;
+    }
+    if (jb < ib) {
+        t = ib;
+        ib = jb;
+        jb = t;
+    }
+    return ia == ib && ja == jb;
+}
+
+ArcHashmap::ArcHashmap(int _size)
 {
     size = _size;
-    keyEmpty = NULL;
-    valEmpty = NULL;
-    
     size = 1 << max(4, int(ceil(log(size)/log(2.0))));
     hm_mask= size -1;
     hm_free = size;
     
+    keyEmpty = NULL;
+    valEmpty = NULL;
+    for (int i=0; i < size; i++) {
+        keystore.push_back(keyEmpty);
+        valstore.push_back(valEmpty);
+    }
+}
+
+void ArcHashmap::set(Arc* key, int value)
+{
+    int index = key->hash() & hm_mask;
+    Arc* matchKey = keystore[index];
+    int collisions = 0;
+    
+    while (matchKey != keyEmpty) {
+        if ( matchKey->equals(key) ) {
+            valstore[index] = value;
+        }
+        if ( ++collisions >= size) {
+            throw new FullHashmapException();
+        }
+		index = (index+1) & hm_mask;
+        matchKey = keystore[index];
+    }
+    keystore[index] = key;
+    valstore[index] = value;
+    --hm_free;
+}
+
+int ArcHashmap::get(Arc* key)
+{
+    int index = key->hash() & hm_mask;
+    Arc* matchKey = keystore[index];
+    int collisions = 0;
+    
+    while (matchKey != keyEmpty) {
+        if (matchKey->equals(key)) {
+            return valstore[index];
+        }
+        if (++collisions >= size) {
+            break;
+        }
+		index = (index + 1) & hm_mask;
+        matchKey = keystore[index];
+    }
+    throw new NoMatchKeyFoundException();
+}
+
+Hashmap::Hashmap(int _size)
+{
+    size = _size;
+    size = 1 << max(4, int(ceil(log(size)/log(2.0))));
+    hm_mask= size -1;
+    hm_free = size;
+    
+    keyEmpty = NULL;
+    valEmpty = vector<Arc*>();
     for (int i=0; i < size; i++) {
         keystore.push_back(keyEmpty);
         valstore.push_back(valEmpty);

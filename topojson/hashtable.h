@@ -16,19 +16,21 @@
 
 using namespace std;
 
-class Arc {
-public:
-    Arc* next;
-    int first;
-    int second;
-public:
-    Arc();
-    Arc(int _first, int _second);
-    ~Arc();
-    
-    Arc & operator=(const Arc& arc);
+class FullHashsetException: public exception
+{
+    virtual const char* what() const throw()
+    {
+        return "Full hashset";
+    }
 };
 
+class NoMatchKeyFoundException: public exception
+{
+    virtual const char* what() const throw()
+    {
+        return "No match key found";
+    }
+};
 class FullHashmapException: public exception
 {
     virtual const char* what() const throw()
@@ -37,16 +39,32 @@ class FullHashmapException: public exception
     }
 };
 
+class Arc {
+public:
+    Arc* next;
+    int first; // index of coordinates
+    int second;
+public:
+    Arc();
+    Arc(int _first, int _second);
+    ~Arc();
+    
+    Arc & operator=(const Arc& arc);
+    
+    int hash();
+    bool equals(Arc* arcB);
+};
+
 class Hashmap {
-	vector<point*> keystore;
-	vector<vector<Arc*>> valstore;
 	int size;
 	int hm_mask;
 	int hm_free;
-    point* keyEmpty;
-    Arc* valEmpty;
-
     
+	vector<point*> keystore;
+	vector<vector<Arc*>> valstore;
+    point* keyEmpty;
+    vector<Arc*> valEmpty;
+
 public:
     Hashmap(int _size);
     
@@ -59,13 +77,25 @@ public:
     vector<point*> keys();
 };
 
-class FullHashsetException: public exception
-{
-    virtual const char* what() const throw()
-    {
-        return "Full hashset";
-    }
+class ArcHashmap {
+    
+	int size;
+	int hm_mask;
+	int hm_free;
+    
+	vector<Arc*> keystore;
+	vector<int> valstore;
+    Arc* keyEmpty;
+    int valEmpty;
+
+public:
+    ArcHashmap(int _size);
+    
+    void set(Arc* key, int value);
+   
+    int get(Arc* key);
 };
+
 
 class Hashset {
     vector<point*> store;
