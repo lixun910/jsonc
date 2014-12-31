@@ -60,13 +60,35 @@ class Hashmap {
 	int hm_mask;
 	int hm_free;
     
+	vector<int> keystore;
+	vector<int> valstore;
+    int keyEmpty;
+    int valEmpty;
+
+public:
+    Hashmap(int _size);
+    
+    void set(int key, int value, vector<point*>& coords);
+    
+    int maybeSet(int key, int value, vector<point*>& coords);
+   
+    int get(int key, vector<point*>& coords);
+    
+    vector<int> keys();
+};
+
+class PointHashmap {
+	int size;
+	int hm_mask;
+	int hm_free;
+    
 	vector<point*> keystore;
 	vector<vector<Arc*>> valstore;
     point* keyEmpty;
     vector<Arc*> valEmpty;
 
 public:
-    Hashmap(int _size);
+    PointHashmap(int _size);
     
     void set(point* key, vector<Arc*>& value);
     
@@ -76,6 +98,8 @@ public:
     
     vector<point*> keys();
 };
+
+
 
 class ArcHashmap {
     

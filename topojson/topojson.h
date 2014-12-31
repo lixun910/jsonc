@@ -32,6 +32,9 @@ class GeoObject {
     double kx;
     double ky;
     vector<point*> coords;
+public:
+    vector<Arc*> arcs;
+    vector<vector<int> > index_arcs;
     
 public:
     GeoObject(int nShapeType, SHPObject* psShape);
@@ -41,7 +44,7 @@ public:
     void quantize(double _x0, double _y0, double _kx, double _ky);
     
     void normalizePoint(point *pt, double y0e, double y1e, double x0, double y0, double y1);
-    void stitch(int nShapeType, SHPObject* psShape);
+    void stitch(int nShapeType, SHPObject* psShape, vector<vector<point*> >& fragments);
 };
 
 class Topojson {
@@ -55,18 +58,16 @@ class Topojson {
     //
     double scale[2];
     double translate[2];
-    int index;
     vector<Arc*> lines;
     vector<Arc*> rings;
     vector<point*> coordinates;
+    vector<Arc*> arcs;
+    vector<vector<point*> > topology_arcs;
     
-    vector<vector<Arc*> > objects_arcs;
-    vector<vector<int> > objects_indexes;
+    //vector<vector<int> > objects_indexes;
     
     ArcHashmap* indexByArc;
-    //
-	Hashmap* arcsByEnd;
-    vector<Arc*> arcs;
+	PointHashmap* arcsByEnd;
     
     //Join
 	vector<int> visitedByIndex;
@@ -91,7 +92,10 @@ private:
     void checkCoordSystem();
     void prequantize();
     void stich();
+    void postquantize();
+    void computeTopology();
 private:
+    void Delta();
 	void Extract();
     
 	Hashset* Join();

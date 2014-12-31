@@ -74,6 +74,97 @@ bool Arc::equals(Arc *arcB)
     return ia == ib && ja == jb;
 }
 
+
+Hashmap::Hashmap(int _size)
+{
+    size = _size;
+    size = 1 << max(4, int(ceil(log(size)/log(2.0))));
+    hm_mask= size -1;
+    hm_free = size;
+    
+    keyEmpty = NULL;
+    valEmpty = NULL;
+    for (int i=0; i < size; i++) {
+        keystore.push_back(keyEmpty);
+        valstore.push_back(valEmpty);
+    }
+}
+
+void Hashmap::set(int key, int value, vector<point*>& coords)
+{
+    int index = coords[key]->hash() & hm_mask;
+    int matchKey = keystore[index];
+    int collisions = 0;
+    
+    while (matchKey != keyEmpty) {
+        if ( *coords[matchKey] == *coords[key] ) {
+            valstore[index] = value;
+        }
+        if ( ++collisions >= size) {
+            throw new FullHashmapException();
+        }
+		index = (index+1) & hm_mask;
+        matchKey = keystore[index];
+    }
+    keystore[index] = key;
+    valstore[index] = value;
+    --hm_free;
+}
+
+int Hashmap::maybeSet(int key, int value, vector<point*>& coords)
+{
+    int index = coords[key]->hash() & hm_mask;
+    int matchKey = keystore[index];
+    int collisions = 0;
+    
+    while (matchKey != keyEmpty) {
+        if (*coords[matchKey] == *coords[key]) {
+            return valstore[index];
+        }
+        if (++collisions >= size) {
+            throw new FullHashmapException();
+        }
+		index = (index+1) & hm_mask;
+        matchKey = keystore[index];
+    }
+    keystore[index] = key;
+    valstore[index] = value;
+    --hm_free;
+    return value;
+}
+
+int Hashmap::get(int key, vector<point*>& coords)
+{
+    int index = coords[key]->hash() & hm_mask;
+    int matchKey = keystore[index];
+    int collisions = 0;
+    
+    while (matchKey != keyEmpty) {
+        if (*coords[matchKey] == *coords[key]) {
+            return valstore[index];
+        }
+        if (++collisions >= size) {
+            break;
+        }
+		index = (index + 1) & hm_mask;
+        matchKey = keystore[index];
+    }
+    return NULL; // throw key not found
+}
+
+vector<int> Hashmap::keys()
+{
+    vector<int> keys;
+    for (int i=0; i < keystore.size(); i++) {
+        int matchKey = keystore[i];
+        if (matchKey != keyEmpty) {
+            keys.push_back(matchKey);
+        }
+    }
+    return keys;
+}
+
+
 ArcHashmap::ArcHashmap(int _size)
 {
     size = _size;
@@ -129,7 +220,7 @@ int ArcHashmap::get(Arc* key)
     throw new NoMatchKeyFoundException();
 }
 
-Hashmap::Hashmap(int _size)
+PointHashmap::PointHashmap(int _size)
 {
     size = _size;
     size = 1 << max(4, int(ceil(log(size)/log(2.0))));
@@ -144,7 +235,7 @@ Hashmap::Hashmap(int _size)
     }
 }
 
-void Hashmap::set(point* key, vector<Arc*>& value)
+void PointHashmap::set(point* key, vector<Arc*>& value)
 {
     int index = key->hash() & hm_mask;
     point* matchKey = keystore[index];
@@ -165,7 +256,7 @@ void Hashmap::set(point* key, vector<Arc*>& value)
     --hm_free;
 }
 
-vector<Arc*> Hashmap::maybeSet(point* key, vector<Arc*>& value)
+vector<Arc*> PointHashmap::maybeSet(point* key, vector<Arc*>& value)
 {
     int index = key->hash() & hm_mask;
     point* matchKey = keystore[index];
@@ -187,7 +278,7 @@ vector<Arc*> Hashmap::maybeSet(point* key, vector<Arc*>& value)
     return value;
 }
 
-vector<Arc*> Hashmap::get(point* key)
+vector<Arc*> PointHashmap::get(point* key)
 {
     int index = key->hash() & hm_mask;
     point* matchKey = keystore[index];
@@ -206,7 +297,7 @@ vector<Arc*> Hashmap::get(point* key)
     return vector<Arc*>();
 }
 
-vector<point*> Hashmap::keys()
+vector<point*> PointHashmap::keys()
 {
     vector<point*> keys;
     for (int i=0; i < keystore.size(); i++) {
