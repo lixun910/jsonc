@@ -40,10 +40,12 @@ class FullHashmapException: public exception
 };
 
 class Arc {
+    int hashCode;
 public:
     Arc* next;
     int first; // index of coordinates
     int second;
+    
 public:
     Arc();
     Arc(int _first, int _second);

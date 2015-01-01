@@ -24,7 +24,7 @@ point::point(double _x, double _y)
 
 int point::hash()
 {
-    if (hashCode != -1) {
+    if (hashCode == -1) {
         byte buffer[16] = {0};
         memcpy(buffer, &x, sizeof(double));
         memcpy(buffer + sizeof(double), &y, sizeof(double));

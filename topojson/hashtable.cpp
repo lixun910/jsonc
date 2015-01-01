@@ -22,6 +22,7 @@ Arc::Arc(int _first, int _second)
     first = _first;
     second = _second;
     next = NULL;
+    hashCode = -1;
 }
 
 Arc::~Arc()
@@ -43,15 +44,18 @@ Arc& Arc::operator=(const Arc &arc)
 
 int Arc::hash()
 {
-    int i = first;
-    int j = second;
-    int t = 0;
-    if (j < i) {
-        t = i;
-        i = j;
-        j = t;
+    if (hashCode == -1) {
+        int i = first;
+        int j = second;
+        int t = 0;
+        if (j < i) {
+            t = i;
+            i = j;
+            j = t;
+        }
+        hashCode = i + 31 * j;
     }
-    return i + 31 * j;
+    return hashCode;
 }
 
 bool Arc::equals(Arc *arcB)

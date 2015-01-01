@@ -10,6 +10,7 @@
 #include <vector>
 #include <map>
 #include <string.h>
+#include <float.h>
 #include <stdlib.h>
 
 #include "shapefil.h"
@@ -19,9 +20,10 @@
 
 using namespace std;
 
-GeoObject::GeoObject(int nShapeType, SHPObject* psShape)
+GeoObject::GeoObject(int shapeType, SHPObject* psShape)
 {
-    int nParts = psShape->nParts > 0 ? psShape->nParts : 1;
+    nShapeType = shapeType;
+    nParts = psShape->nParts > 0 ? psShape->nParts : 1;
     for (int j=0; j < nParts; j++ ) {
         int start = psShape->panPartStart[j];
         int end = j < nParts-1 ? psShape->panPartStart[j+1] : psShape->nVertices;
@@ -56,41 +58,49 @@ GeoObject::~GeoObject()
             coords[i] = NULL;
         }
     }
-    coords.empty();
+    coords.clear();
 }
 
-void GeoObject::quantizePoint(point* pt)
+void GeoObject::setShapeType(int shpType)
 {
-    pt->x = round((pt->x + x0) * kx);
-    pt->y = round((pt->y + y0) * ky);
+    nShapeType = shpType;
+}
+point* GeoObject::getPoint(int i)
+{
+    if (coords.size() == 0) return NULL;
+    return coords[i];
 }
 
-void GeoObject::quantize(double _x0, double _y0, double _kx, double _ky)
+void GeoObject::setArc(Arc *arc)
 {
-    x0 = _x0;
-    y0 = _y0;
-    kx = _kx;
-    ky = _ky;
-    
+    if (arc) {
+        arcs.push_back(arc);
+    }
+}
+
+void GeoObject::quantize(double dx, double dy, double kx, double ky)
+{
     int i = 0;
     int j = 1;
     int n = coords.size();
-    
-    point* pi = coords[i];
-    quantizePoint(pi);
-    
-    point* pj;
+    point* pi = coords[0];
+    //quantizePoint(pi);
+    pi->x = round((pi->x + dx) * kx);
+    pi->y = round((pi->y + dy) * ky);
     double px = pi->x;
     double py = pi->y;
     double x;
     double y;
+    point* pj;
    
     while (++i < n) {
         pi = coords[i];
-        quantizePoint(pi);
+        //quantizePoint(pi);
+        pi->x = round((pi->x + dx) * kx);
+        pi->y = round((pi->y + dy) * ky);
         x = pi->x;
         y = pi->y;
-        if ( x != px || y != py ) {
+        if ( x != px || y != py ) { // skip coincident points
             pj = coords[j++];
             pj->x = x;
             px = x;
@@ -117,7 +127,7 @@ void GeoObject::normalizePoint(point *pt, double y0e, double y1e, double x0, dou
     }
 }
 
-void GeoObject::stitch(int nShapeType, SHPObject *psShape, vector<vector<point*> >& fragments)
+void GeoObject::stitch(int nShapeType, SHPObject *psShape, vector<vector<point*> >& fragments, map<int, GeoObject*>& fragments_index, double scale[2], double translate[2])
 {
     
     if ( nShapeType != SHPT_POLYGON && nShapeType != SHPT_POLYGONM
@@ -125,54 +135,6 @@ void GeoObject::stitch(int nShapeType, SHPObject *psShape, vector<vector<point*>
         return;
     }
 
-    int nParts = psShape->nParts > 0 ? psShape->nParts : 1;
-    
-    for (int p=0; p < nParts; p++ ) {
-        int start = psShape->panPartStart[p];
-        int end = p < nParts-1 ? psShape->panPartStart[p+1] : psShape->nVertices;
-        int n = end - start;
-        bool a = false;
-        bool b = false;
-        bool c = false;
-        int i0 = -1;
-        int i = 0;
-        while (i < n ) {
-            double x = psShape->padfX[i];
-            double y = psShape->padfY[i];
-            bool antimeridian = abs(abs(x) - 180.0) < 1e-2;
-            bool polar = abs(abs(y) - 90.0) < 1e-2;
-            if (antimeridian || polar) {
-                if (! (a || b || c)) {
-                    i0 = i;
-                }
-                if (antimeridian) {
-                    if (a) {
-                        c = true;
-                    } else {
-                        a = true;
-                    }
-                }
-                if (polar) {
-                    b = true;
-                }
-            }
-            if ((!antimeridian && !polar) || i == n-1) {
-                if ( a && b && c ) {
-                    //del line[i0:i]
-                    for (int j = i-1; j >= i0; j--) {
-                        coords.erase(coords.begin() + start + j);
-                    }
-                    n -= i - i0;
-                    i = i0;
-                }
-                a = false;
-                b = false;
-                c = false;
-            }
-            i += 1;
-        }
-    }
-    /*
     double ε = 1e-2;
     double x0 = -180.0;
     double x0e = x0 + ε;
@@ -183,10 +145,10 @@ void GeoObject::stitch(int nShapeType, SHPObject *psShape, vector<vector<point*>
     double y1 = 90.0;
     double y1e = y1 - ε;
     
-    double kx = this->kx;
-    double ky = this->ky;
-    double dx = 1 / this->x0;
-    double dy = 1 / this->y0;
+    double kx = scale[0];
+    double ky = scale[1];
+    double dx = translate[0];
+    double dy = translate[1];
     
     x0 = round((x0 - dx) / kx);
     x1 = round((x1 - dx) / kx);
@@ -197,26 +159,25 @@ void GeoObject::stitch(int nShapeType, SHPObject *psShape, vector<vector<point*>
     y0e = round((y0e - dy) / ky);
     y1e = round((y1e - dy) / ky);
     
-    int nParts = psShape->nParts > 0 ? psShape->nParts : 1;
-    
     for (int p=0; p < nParts; p++ ) {
         int start = psShape->panPartStart[p];
         int end = p < nParts-1 ? psShape->panPartStart[p+1] : psShape->nVertices;
       
         vector<point*> ring;
         for (int i = start; i < end ; i++ ) ring.push_back(coords[i]);
-        fragments.push_back(ring);
+        
+        // By default, assume that this ring doesn’t need any stitching.
+        //fragments.push_back(ring);
+        //fragments_index[fragments.size()-1] = this;
         
         int n = ring.size(); // n vertices in polygon
-        
         for (int i = 0; i < n; i++ ) {
             point* pt = ring[i];
             double x = pt->x;
             double y = pt->y;
-            
             // If this is an antimeridian or polar point…
             if (x <= x0e || x >= x1e || y <= y0e || y >= y1e) {
-                
+                throw new StitchException();
                 // Advance through any antimeridian or polar points…
                 int k = i + 1;
                 for (; k < n; ++k) {
@@ -226,28 +187,27 @@ void GeoObject::stitch(int nShapeType, SHPObject *psShape, vector<vector<point*>
                     if (xk > x0e && xk < x1e && yk > y0e && yk < y1e)
                         break;
                 }
-                
                 // If this was just a single antimeridian or polar point,
                 // we don’t need to cut this ring into a fragment;
                 // we can just leave it as-is.
                 if (k == i + 1) continue;
-                
                 // Otherwise, if this is not the first point in the ring,
                 // cut the current fragment so that it ends at the current point.
                 // The current point is also normalized for later joining.
                 if (i) {
                     vector<point*> fragmentBefore;
                     for (int m=0; m < i+1; m++) fragmentBefore.push_back(ring[m]);
-                    normalizePoint(fragmentBefore[fragmentBefore.size() -1], y0e, y1e, x0, y0, y1);
+                    int curIndex = fragmentBefore.size() -1;
+                    normalizePoint(fragmentBefore[curIndex], y0e, y1e, x0, y0, y1);
+                    //fragmentBefore.polygon = polygon;
                     fragments[fragments.size() -1] = fragmentBefore;
-                    //fragments.push_back(
                 }
                 // If the ring started with an antimeridian fragment,
                 // we can ignore that fragment entirely.
                 else {
+                    fragments_index[fragments.size()-1] = NULL;
                     fragments.pop_back();
                 }
-                
                 // If the remainder of the ring is an antimeridian fragment,
                 // move on to the next ring.
                 if (k >= n) break;
@@ -255,15 +215,20 @@ void GeoObject::stitch(int nShapeType, SHPObject *psShape, vector<vector<point*>
                 // Otherwise, add the remaining ring fragment and continue.
                 vector<point*> fragmentRemain;
                 for (int m=k-1; m < n; m++) fragmentRemain.push_back(ring[m]);
+                normalizePoint(fragmentRemain[0], y0e, y1e, x0, y0, y1);
                 fragments.push_back(fragmentRemain);
-                normalizePoint(ring[0], y0e, y1e, x0, y0, y1);
-                //ring.polygon = polygon;
+                fragments_index[fragments.size()-1] = this;
                 i = -1;
                 n = fragmentRemain.size();
             }
         }
+        //coords.clear();
     }
-    */
+}
+
+void GeoObject::addFragment(vector<point *> &fragment)
+{
+    coords.insert(coords.end(), fragment.begin(), fragment.end());
 }
 
 Topojson::Topojson(const char* shp_path)
@@ -279,12 +244,7 @@ Topojson::Topojson(const char* shp_path)
 	double adfMaxBound[4];
     SHPGetInfo(hSHP, &nEntities, &nShapeType, adfMinBound, adfMaxBound );
 
-    bounds[0] = adfMinBound[0];
-    bounds[1] = adfMinBound[1];
-    bounds[2] = adfMaxBound[0];
-    bounds[3] = adfMaxBound[1];
-   
-  
+    getBounds();
     if (Q0) {
         prequantize();
     }
@@ -300,11 +260,40 @@ Topojson::Topojson(const char* shp_path)
     if (Q1) {
         Delta();
     }
+    
+    // force clockwise
+    // remove empty (collapsed) features
+    // delete the bbox if desired
+    // output JSON
 }
 
 Topojson::~Topojson()
 {
 	SHPClose(this->hSHP);
+}
+
+void Topojson::getBounds()
+{
+    double x0 = DBL_MAX;
+    double y0 = DBL_MAX;
+    double x1 = -DBL_MAX;
+    double y1 = -DBL_MAX;
+    for (int i=0; i < hSHP->nRecords; i++) {
+        SHPObject *psShape = SHPReadObject(hSHP, i);
+		for (int j=0; j < psShape->nVertices; j++ ) {
+            double x = psShape->padfX[j];
+            double y = psShape->padfY[j];
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+        }
+        delete psShape;
+    }
+    bounds[0] = x0;
+    bounds[1] = y0;
+    bounds[2] = x1;
+    bounds[3] = y1;
 }
 
 void Topojson::computeTopology()
@@ -324,21 +313,22 @@ void Topojson::computeTopology()
     //  rings: rings
     //  objects: geojson
     //  arcs: [] -->dedup
-    indexByArc = new ArcHashmap(arcs.size() * 1.4);
     
     for (int i=0; i < arcs.size(); i++) {
-        indexByArc->set(arcs[i], i);
-        vector<point*> newArcs;
+        indexByArc[arcs[i]->hash()] = i;
+        vector<point*> realArcs;
         for (int j=arcs[i]->first; j < arcs[i]->second + 1; j++) {
-            newArcs.push_back(coordinates[j]);
+            realArcs.push_back(coordinates[j]);
         }
-        topology_arcs.push_back(newArcs);
+        topology_arcs.push_back(realArcs);
     }
    
     for (int i=0; i < objects.size(); i++) {
-        for (int j=0; j < objects[i]->arcs.size(); j++) {
-            vector<int> indexes = indexArcs(objects[i]->arcs[i]);
-            objects[i]->index_arcs.push_back(indexes);
+        GeoObject* object = objects[i];
+        for (int j=0; j < object->arcs.size(); j++) {
+            Arc* arc = object->arcs[j];
+            vector<int> indexes = indexArcs(arc);
+            object->real_arcs.push_back(indexes);
         }
     }
     
@@ -365,9 +355,9 @@ void Topojson::Delta()
         double x1;
         double y1;
         while (++j < m) {
-            pt = arc[j];
-            x1 = pt->x;
-            y1 = pt->y;
+            point* tmp_pt = arc.at(j);
+            x1 = tmp_pt->x;
+            y1 = tmp_pt->y;
             arc[j]->x = x1 -x0;
             arc[j]->y = y1 - y0;
             x0 = x1;
@@ -380,7 +370,7 @@ vector<int> Topojson::indexArcs(Arc* arc)
 {
     vector<int> indexes;
     do {
-        int index = indexByArc->get(arc);
+        int index = indexByArc[arc->hash()];
         indexes.push_back(arc->first < arc->second ? index : ~index);
         arc = arc->next;
     } while (arc);
@@ -401,15 +391,12 @@ void Topojson::prequantize()
     double y0 = bounds[1];
     double x1 = bounds[2];
     double y1 = bounds[3];
-    
     double kx = x1 -x0 ? (Q1 - 1) / (x1 - x0) * Q0 / Q1 : 1;
     double ky = y1 -y0 ? (Q1 - 1) / (y1 - y0) * Q0 / Q1 : 1;
- 
     scale[0] = 1 / kx;
     scale[1] = 1 / ky;
     translate[0] = x0;
     translate[1] = y0;
-    
     
     for (int i=0; i < hSHP->nRecords; i++) {
         SHPObject *psShape = SHPReadObject(hSHP, i);
@@ -418,7 +405,6 @@ void Topojson::prequantize()
         objects.push_back(object);
         delete psShape;
     }
-    
 }
 
 void Topojson::postquantize()
@@ -458,23 +444,22 @@ void Topojson::postquantize()
 void Topojson::stich()
 {
     vector<vector<point*> > fragments;
-    vector<vector<point*> > fragment_polygon;
+    map<int, GeoObject*> fragments_index;
     
     int nShapeType = hSHP->nShapeType;
     
     for (int r=0; r < hSHP->nRecords; r++) {
         SHPObject *psShape = SHPReadObject(hSHP, r);
-        objects[r]->stitch(nShapeType, psShape, fragments);
+        objects[r]->stitch(nShapeType, psShape, fragments, fragments_index, scale, translate);
         delete psShape;
     }
    
-    /*
     // Now stitch the fragments back together into rings.
     // To connect the fragments start-to-end, create a simple index by end.
-    map<point*, vector<point*> > fragmentByStart;
-    map<point*, vector<point*> > fragmentByEnd;
-    map<point*, vector<point*> >::iterator it;
-  
+    map<int, vector<point*> > fragmentByStart;
+    map<int, vector<point*> > fragmentByEnd;
+    map<vector<point*>, int> fragmentPos;
+    
     // For each fragment…
     for (int i=0; i < fragments.size(); i++) {
         vector<point*> fragment = fragments[i];
@@ -483,62 +468,91 @@ void Topojson::stich()
         
         // If this fragment is closed, add it as a standalone ring.
         if (start[0] == end[0] && start[1] == end[1]) {
-            //fragment_polygon.push_back(fragment);
-            fragments[i].empty();
+            GeoObject* object = fragments_index[i];
+            object->addFragment(fragment);
+            fragments[i].clear();
             continue;
         }
         
         //fragment.index = i;
-        fragmentByEnd[end] = fragment;
-        fragmentByStart[start] = fragment;
+        fragmentPos[fragment] = i;
+        fragmentByEnd[end->hash()] = fragment;
+        fragmentByStart[start->hash()] = fragment;
     }
     
     // For each open fragment…
-    for (int i=0; i < fragments.size(); i++) {
+    int n = fragments.size();
+    for (int i=0; i < n; i++) {
         vector<point*> fragment = fragments[i];
         
         if (fragment.size() > 0) {
-            
             point* start = fragment[0];
             point* end = fragment[fragment.size()- 1];
+            vector<point*> startFragment = fragmentByEnd[start->hash()];
+            vector<point*> endFragment = fragmentByStart[end->hash()];
+
+            fragmentByStart.erase(fragmentByStart.find(start->hash()));
+            fragmentByEnd.erase(fragmentByEnd.find(end->hash()));
             
             // If this fragment is closed, add it as a standalone ring.
             if (start[0] == end[0] && start[1] == end[1]) {
-                //fragment.polygon.push_back(fragment);
+                GeoObject* object = fragments_index[i];
+                object->addFragment(fragment);
                 continue;
             }
             
-            vector<point*> startFragment = fragmentByEnd[start];
-            vector<point*> endFragment = fragmentByStart[end];
             if (startFragment.size() > 0) {
+                fragmentByEnd.erase(fragmentByEnd.find(start->hash()));
+                fragmentByStart.erase(fragmentByStart.find(startFragment[0]->hash()));
                 startFragment.pop_back(); // drop the shared coordinate
-                //fragments[startFragment.index] = null;
-                fragment = startFragment.concat(fragment);
-                fragment.polygon = startFragment.polygon;
+                int pos = fragmentPos[startFragment];
+                fragments[pos].clear();
+                //fragment = startFragment.concat(fragment);
+                startFragment.insert(startFragment.end(), fragment.begin(), fragment.end());
+                fragment = startFragment;
+                //fragment.polygon = startFragment.polygon;
+                GeoObject* obj1 = fragments_index[i];
+                GeoObject* obj2 = fragments_index[pos];
+                obj1->coords = obj2->coords;
                 
-                if (startFragment === endFragment) {
+                if (startFragment == endFragment) {
                     // Connect both ends to this single fragment to create a ring.
-                    fragment.polygon.push(fragment);
+                    //fragment.polygon.push(fragment);
+                    obj1->addFragment(fragment);
                 } else {
-                    fragment.index = n++;
-                    fragments.push(fragmentByStart[fragment[0]] = fragmentByEnd[fragment[fragment.length - 1]] = fragment);
+                    //fragment.index = n++;
+                    fragmentPos[fragment] = n++;
+                    //fragments.push(fragmentByStart[fragment[0]] = fragmentByEnd[fragment[fragment.length - 1]] = fragment);
+                    fragmentByEnd[fragment[fragment.size()- 1]->hash()] = fragment;
+                    fragmentByStart[fragment[0]->hash()] = fragment;
+                    fragments.push_back(fragment);
                 }
             } else if (endFragment.size() > 0) {
-                delete fragmentByStart[end];
-                delete fragmentByEnd[endFragment[endFragment.length - 1]];
+                //delete fragmentByStart[end];
+                //delete fragmentByEnd[endFragment[endFragment.length - 1]];
+                fragmentByStart.erase(fragmentByStart.find(end->hash()));
+                fragmentByEnd.erase(fragmentByEnd.find(endFragment[endFragment.size()-1]->hash()));
                 fragment.pop_back(); // drop the shared coordinate
-                fragment = fragment.concat(endFragment);
-                fragment.polygon = endFragment.polygon;
-                fragment.index = n++;
-                fragments[endFragment.index] = null;
-                fragments.push(fragmentByStart[fragment[0]] = fragmentByEnd[fragment[fragment.length - 1]] = fragment);
+                //fragment = fragment.concat(endFragment);
+                fragment.insert(fragment.end(), endFragment.begin(), endFragment.end());
+                //fragment.polygon = endFragment.polygon;
+                GeoObject* obj1 = fragments_index[i];
+                int pos = fragmentPos[endFragment];
+                GeoObject* obj2 = fragments_index[pos];
+                obj1->coords = obj2->coords;
+                fragmentPos[fragment] = n++;
+                fragments[pos].clear();
+                //fragments.push(fragmentByStart[fragment[0]] = fragmentByEnd[fragment[fragment.length - 1]] = fragment);
+                fragmentByEnd[fragment[fragment.size()- 1]->hash()] = fragment;
+                fragmentByStart[fragment[0]->hash()] = fragment;
+                fragments.push_back(fragment);
             } else {
-                fragment.push(fragment[0]); // close ring
-                fragment.polygon.push(fragment);
+                fragment.push_back(fragment[0]); // close ring
+                GeoObject* obj = fragments_index[i];
+                obj->addFragment(fragment);
             }
         }
     }
-    */
 }
 
 void Topojson::sequence(int i, int previousIndex, int currentIndex, int nextIndex)
@@ -549,7 +563,6 @@ void Topojson::sequence(int i, int previousIndex, int currentIndex, int nextInde
     }
     visitedByIndex[currentIndex] = i;
     int leftIndex = leftByIndex[currentIndex];
-    
     if (leftIndex >= 0) {
         int rightIndex = rightByIndex[currentIndex];
         if ((leftIndex != previousIndex || rightIndex != nextIndex)
@@ -573,7 +586,7 @@ void Topojson::rotateArray(vector<point*>& array, int start, int end, int offset
 void Topojson::reverse(vector<point*>& array, int start, int end)
 {
     for (int mid = start + ((end-- - start) >> 1); start < mid; ++start, --end) {
-        point* t = new point(*array[start]);
+        point* t = array[start];
         array[start] = array[end];
         array[end] = t;
     }
@@ -622,6 +635,8 @@ bool Topojson::equalRing(Arc* arcA, Arc* arcB)
     return true;
 }
 
+// Rings are rotated to a consistent, but arbitrary, start point.
+// This is necessary to detect when a ring and a rotated copy are dupes.
 int Topojson::findMinimumOffset(Arc* arc)
 {
 	int start = arc->first;
@@ -649,6 +664,7 @@ void Topojson::Extract()
     
     for (int i=0; i < hSHP->nRecords; i++) {
         SHPObject *psShape = SHPReadObject(hSHP, i);
+        GeoObject *object = objects[i];
 		int nParts = psShape->nParts > 0 ? psShape->nParts : 1;
 		for (int j=0; j < nParts; j++ ) {
 			int start = psShape->panPartStart[j];
@@ -656,36 +672,46 @@ void Topojson::Extract()
             int n = end - start;
             
 			for (int k=start; k < end; k++ ) {
-                point* pt = new point(psShape->padfX[k], psShape->padfY[k]);
+                point* pt = object->getPoint(k);
 				coordinates.push_back(pt);
                 index++;
 			}
-           
+            // arc [start_index, end_index] of coordinates
             Arc* arc = new Arc();
 			arc->first = index -n + 1;
 			arc->second = index;
+            object->setArc(arc);
 
-			if (nShapeType == SHPT_ARC || nShapeType == SHPT_ARCM ||
-				nShapeType == SHPT_ARCZ) {
+			if (nShapeType == SHPT_ARC || nShapeType == SHPT_ARCM || nShapeType == SHPT_ARCZ) {
 				lines.push_back(arc);
 			} else if (nShapeType == SHPT_POLYGON || nShapeType == SHPT_POLYGONZ ||
 				nShapeType == SHPT_POLYGONM) {
 				rings.push_back(arc);
 			}
-            objects[i]->arcs.push_back(arc);
 		}
     }
 }
 
 Hashset* Topojson::Join()
 {
-    // index()
     vector<int> indexes;
+    for (int i=0; i < coordinates.size(); i++) indexes.push_back(NULL);
+    
     //Hashmap indexByPoint(coordinates.size() * 1.4);
+    map<int, int> indexByPoint;
+    map<int, int>::iterator indexIt;
     
     for (int i=0; i < coordinates.size(); i++) {
         //int val = indexByPoint.maybeSet(i, i, coordinates);
-        indexes.push_back(i);
+        int idx = i;
+        point* pt = coordinates[i];
+        indexIt = indexByPoint.find(pt->hash());
+        if (indexIt == indexByPoint.end()) {
+            indexByPoint[pt->hash()] = i;
+        } else {
+            idx = indexByPoint[pt->hash()];
+        }
+        indexes[i] = idx;
     }
    
     // init visitedByIndex, leftByIndex, rightByIndex
@@ -697,8 +723,9 @@ Hashset* Topojson::Join()
 	}
 
 	for (int i=0; i < lines.size(); i++) {
-		int lineStart = lines[i]->first;
-		int lineEnd = lines[i]->second;
+        Arc* line = lines[i];
+		int lineStart = line->first;
+		int lineEnd = line->second;
 		int currentIndex = indexes[lineStart];
         int nextIndex = indexes[++lineStart];
         
@@ -708,7 +735,7 @@ Hashset* Topojson::Join()
         while (++lineStart <= lineEnd) {
             int previousIndex = currentIndex;
             currentIndex = nextIndex;
-            nextIndex = indexes[lineStart];
+            nextIndex = lineStart;
             sequence(i, previousIndex, currentIndex, nextIndex);
         }
         ++junctionCount;
@@ -730,7 +757,7 @@ Hashset* Topojson::Join()
         while (++ringStart <= ringEnd) {
             previousIndex = currentIndex;
             currentIndex = nextIndex;
-            nextIndex = indexes[ringStart];
+            nextIndex = ringStart;
             sequence(i, previousIndex, currentIndex, nextIndex);
         }
     }
@@ -761,7 +788,7 @@ void Topojson::Cut()
                 Arc* next = new Arc(lineMid, line->second);
                 line->second = lineMid;
                 line->next = next;
-                line = next;
+                line = line->next;
             }
         }
     }
@@ -779,7 +806,7 @@ void Topojson::Cut()
                     Arc* next = new Arc(ringMid, ring->second);
                     ring->second = ringMid;
                     ring->next = next;
-                    ring = next;
+                    ring = ring->next;
                 } else { // For the first junction, we can rotate rather than cut.
                     rotateArray(coordinates, ringStart, ringEnd, ringEnd - ringMid);
                     coordinates[ringEnd] = coordinates[ringStart];
@@ -793,28 +820,6 @@ void Topojson::Cut()
 
 void Topojson::Dedup()
 {
-    int arcCount = lines.size() + rings.size();
-    
-    // Count the number of (non-unique) arcs to initialize the hashmap safely.
-    for (int i=0; i < lines.size(); i++) {
-        Arc* line = lines[i];
-        Arc* nextline = line->next;
-        while (nextline) {
-            ++arcCount;
-            nextline = nextline->next;
-        }
-    }
-    for (int i=0; i < rings.size(); i++) {
-        Arc* ring = rings[i];
-        Arc* nextring = ring->next;
-        while (nextring) {
-            ++arcCount;
-            nextring = nextring->next;
-        }
-    }
-    
-    arcsByEnd = new PointHashmap(arcCount * 2 * 1.4);
-    
     for (int i=0; i < lines.size(); i++) {
         Arc* nextline = lines[i];
         do {
@@ -839,44 +844,54 @@ void Topojson::Dedup()
 
 void Topojson::dedupLine(Arc* arc)
 {
+    map<int, vector<Arc*> >::iterator arcIter;
+    
 	// Does this arc match an existing arc in order?
 	point* startPoint = coordinates[arc->first];
-	vector<Arc*> startArcs = arcsByEnd->get(startPoint);
-	for (int i=0; i < startArcs.size(); i++) {
-		Arc* startArc = startArcs[i];	
-		if (equalLine(startArc, arc)) {
-			arc->first = startArc->first;
-			arc->second = startArc->second;
-			return;
-		}
-	}
+    vector<Arc*> startArcs;
+    if( arcsByEnd.find(startPoint->hash()) != arcsByEnd.end() ) {
+        startArcs = arcsByEnd[startPoint->hash()];
+        for (int i=0; i < startArcs.size(); i++) {
+            Arc* startArc = startArcs[i];	
+            if (equalLine(startArc, arc)) {
+                arc->first = startArc->first;
+                arc->second = startArc->second;
+                return;
+            }
+        }
+    }
 
 	// Does this arc match an existing arc in reverse order?
+    vector<Arc*> endArcs;
 	point* endPoint = coordinates[arc->second];
-	vector<Arc*> endArcs = arcsByEnd->get(endPoint);
-	for (int i=0; i < endArcs.size(); i++) {
-		Arc* endArc = endArcs[i];	
-		if (reverseEqualLine(endArc, arc)) {
-			arc->first = endArc->first;
-			arc->second = endArc->second;
-			return;
-		}
-	}
+    if( arcsByEnd.find(endPoint->hash()) != arcsByEnd.end() ) {
+        endArcs = arcsByEnd[endPoint->hash()];
+        for (int i=0; i < endArcs.size(); i++) {
+            Arc* endArc = endArcs[i];	
+            if (reverseEqualLine(endArc, arc)) {
+                arc->second = endArc->first;
+                arc->first = endArc->second;
+                return;
+            }
+        }
+    }
 
 	if (startArcs.size() > 0) {
 		startArcs.push_back(arc);
+        arcsByEnd[startPoint->hash()] = startArcs;
 	} else {
         vector<Arc*> tempArcs;
         tempArcs.push_back(arc);
-        arcsByEnd->set(startPoint, tempArcs);
+        arcsByEnd[startPoint->hash()] = tempArcs;
     }
     
 	if (endArcs.size() > 0) {
 		endArcs.push_back(arc);
+        arcsByEnd[endPoint->hash()] = endArcs;
 	} else {
         vector<Arc*> tempArcs;
         tempArcs.push_back(arc);
-        arcsByEnd->set(endPoint, tempArcs);
+        arcsByEnd[endPoint->hash()] =  tempArcs;
     }
     
     arcs.push_back(arc);
@@ -888,45 +903,52 @@ void Topojson::dedupRing(Arc* arc)
     // Does this arc match an existing line in order, or reverse order?
     // Rings are closed, so their start point and end point is the same.
     point* endPoint = coordinates[arc->first];
-    vector<Arc*> endArcs = arcsByEnd->get(endPoint);
-    for (int i=0; i < endArcs.size(); i++) {
-        Arc* endArc = endArcs[i];
-        if (equalRing(endArc, arc)) {
-            arc->first = endArc->first;
-            arc->second = endArc->second;
-            return;
-        }
-        if (reverseEqualLine(endArc, arc)) {
-            arc->first = endArc->second;
-            arc->second = endArc->first;
-            return;
+    vector<Arc*> endArcs;
+    if( arcsByEnd.find(endPoint->hash()) != arcsByEnd.end() ) {
+        endArcs = arcsByEnd[endPoint->hash()];
+        for (int i=0; i < endArcs.size(); i++) {
+            Arc* endArc = endArcs[i];
+            if (equalRing(endArc, arc)) {
+                arc->first = endArc->first;
+                arc->second = endArc->second;
+                return;
+            }
+            if (reverseEqualLine(endArc, arc)) {
+                arc->first = endArc->second;
+                arc->second = endArc->first;
+                return;
+            }
         }
     }
-    
     // Otherwise, does this arc match an existing ring in order, or reverse order?
-    endPoint = coordinates[arc->first + findMinimumOffset(arc)];
-    endArcs.empty();
-    endArcs = arcsByEnd->get(endPoint);
-    for (int i=0; i < endArcs.size(); i++) {
-        Arc* endArc = endArcs[i];
-        if (equalRing(endArc, arc)) {
-            arc->first = endArc->first;
-            arc->second = endArc->second;
-            return;
-        }
-        if (reverseEqualLine(endArc, arc)) {
-            arc->first = endArc->second;
-            arc->second = endArc->first;
-            return;
+    int idx = arc->first + findMinimumOffset(arc);
+    endPoint = coordinates.at(idx);
+    if (endArcs.size() >0) endArcs.clear();
+    
+    if( arcsByEnd.find(endPoint->hash()) != arcsByEnd.end() ) {
+        endArcs = arcsByEnd[endPoint->hash()];
+        for (int i=0; i < endArcs.size(); i++) {
+            Arc* endArc = endArcs[i];
+            if (equalRing(endArc, arc)) {
+                arc->first = endArc->first;
+                arc->second = endArc->second;
+                return;
+            }
+            if (reverseEqualLine(endArc, arc)) {
+                arc->first = endArc->second;
+                arc->second = endArc->first;
+                return;
+            }
         }
     }
     
     if (endArcs.size() > 0) {
         endArcs.push_back(arc);
+        arcsByEnd[endPoint->hash()] = endArcs;
     } else {
         vector<Arc*> tempArcs;
         tempArcs.push_back(arc);
-        arcsByEnd->set(endPoint, tempArcs);
+        arcsByEnd[endPoint->hash()] = tempArcs;
     }
     
     arcs.push_back(arc);

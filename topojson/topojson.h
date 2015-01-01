@@ -25,26 +25,38 @@ class SphericalCoordSystemException: public exception
     }
 };
 
+class StitchException: public exception
+{
+    virtual const char* what() const throw()
+    {
+        return "stitching is need"; 
+    }
+};
+
 class GeoObject {
     int length;
-    double x0;
-    double y0;
-    double kx;
-    double ky;
-    vector<point*> coords;
-public:
-    vector<Arc*> arcs;
-    vector<vector<int> > index_arcs;
+    int nShapeType;
+    int nParts;
     
 public:
-    GeoObject(int nShapeType, SHPObject* psShape);
+    vector<point*> coords;
+    vector<Arc*> arcs;
+    vector<vector<int> > real_arcs;
+    
+public:
+    GeoObject(int shapeType, SHPObject* psShape);
     ~GeoObject();
     
-    void quantizePoint(point* pt);
-    void quantize(double _x0, double _y0, double _kx, double _ky);
+    void quantize(double dx, double dy, double kx, double ky);
     
     void normalizePoint(point *pt, double y0e, double y1e, double x0, double y0, double y1);
-    void stitch(int nShapeType, SHPObject* psShape, vector<vector<point*> >& fragments);
+    void stitch(int nShapeType, SHPObject* psShape, vector<vector<point*> >& fragments, map<int, GeoObject*>& fragments_index, double scale[2], double translate[2]);
+   
+    void setShapeType(int shpType);
+    point* getPoint(int i);
+    void setArc(Arc* arc);
+    
+    void addFragment(vector<point*>& fragment);
 };
 
 class Topojson {
@@ -66,8 +78,10 @@ class Topojson {
     
     //vector<vector<int> > objects_indexes;
     
-    ArcHashmap* indexByArc;
-	PointHashmap* arcsByEnd;
+    //ArcHashmap* indexByArc;
+	//PointHashmap* arcsByEnd;
+    map<int, int> indexByArc;
+    map<int, vector<Arc*> > arcsByEnd;
     
     //Join
 	vector<int> visitedByIndex;
@@ -89,6 +103,7 @@ public:
     void Save();
 
 private:
+    void getBounds();
     void checkCoordSystem();
     void prequantize();
     void stich();
