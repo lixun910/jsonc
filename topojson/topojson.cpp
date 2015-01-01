@@ -391,6 +391,53 @@ void Topojson::prequantize()
     double y0 = bounds[1];
     double x1 = bounds[2];
     double y1 = bounds[3];
+    // Find the x, y values that map to x / y integer unit in topojson output
+    // Calculated as 1/50 the size of average x and y offsets
+    // (a compromise between compression, precision and simplicity)
+    double k = 0.02;
+    double prevX = 0.0;
+    double prevY = 0.0;
+    double dx = 0.0;
+    double dy = 0.0;
+    int count=0;
+    for (int i=0; i < hSHP->nRecords; i++) {
+        SHPObject *psShape = SHPReadObject(hSHP, i);
+        for (int j=0; j < psShape->nVertices; j++) {
+            if (i ==0 && j==0) {
+                prevX = psShape->padfX[j];
+                prevY = psShape->padfY[j];
+            } else {
+                double x = psShape->padfX[j];
+                double y = psShape->padfY[j];
+                dx += abs(x - prevX);
+                dy += abs(y - prevY);
+                prevX = x;
+                prevY = y;
+            }
+            count++;
+        }
+        delete psShape;
+    }
+    // rounding xmax, ymax ensures original layer bounds don't change after 'quantization'
+    // (this could matter if a layer extends to the poles or the central meridian)
+    double xmax = ceil((x1 - x0) / ((dx / double(count) || 0) * k));
+    double ymax = ceil((y1 - y0) / ((dy / double(count) || 0) * k));
+    
+    double mx = xmax / (x1 - x0);
+    double bx = 0 - mx * x0;
+    double my = ymax / (y1 - y0);
+    double by = 0 - my * y0;
+   
+    mx = 1 / mx;
+    my = 1 / my;
+    bx = -bx / mx;
+    by = -by / my;
+    
+    scale[0] = mx;
+    scale[1] = my;
+    translate[0] = bx;
+    translate[1] = by;
+    
     double kx = x1 -x0 ? (Q1 - 1) / (x1 - x0) * Q0 / Q1 : 1;
     double ky = y1 -y0 ? (Q1 - 1) / (y1 - y0) * Q0 / Q1 : 1;
     scale[0] = 1 / kx;
@@ -401,7 +448,7 @@ void Topojson::prequantize()
     for (int i=0; i < hSHP->nRecords; i++) {
         SHPObject *psShape = SHPReadObject(hSHP, i);
         GeoObject* object = new GeoObject(hSHP->nShapeType, psShape);
-        object->quantize(-x0, -y0, kx, ky);
+        object->quantize(-translate[0], -translate[1], 1/scale[0], 1/scale[1]);
         objects.push_back(object);
         delete psShape;
     }
